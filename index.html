@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connections</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: "Arial", sans-serif; 
+            text-align: center;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { color: #1a1a1a; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            max-width: 700px;
+            margin: 20px auto;
+        }
+
+        .grid.shake {
+            animation: shakeAnimation 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+        }
+
+        @keyframes shakeAnimation {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+            40%, 60% { transform: translate3d(6px, 0, 0); }
+        }
+
+        .card {
+            background-color: #efefe6;
+            border-radius: 6px;
+            padding: 40px 20px;
+            font-weight: bold;
+            font-size: 18px;
+            cursor: pointer;
+            user-select: none;
+            text-transform: uppercase;
+            transition: transform 0.15s ease, background-color 0.2s ease, color 0.2s ease;
+            max-height: 20px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            word-break: break-word;
+            
+        }
+        .card.selected {
+            background-color: #5a5a5a;
+            color: white;
+        }
+
+        .card.pop {
+            animation: popAnimation 0.20s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    
+        }
+
+        @keyframes popAnimation {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.9); }
+            100% { transform: scale(1); }
+        }
+
+        .solved {
+            grid-column: span 4;
+            color: black;
+            font-weight: bold;
+            max-height: 70px;
+            padding: 30px 20px;
+            border-radius: 6px;
+            text-transform: uppercase;
+
+        }
+
+        .solved.pop-solved {
+            animation: categoryPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes categoryPop {
+            0% { 
+                transform: scale(0.9);
+                opacity: 0;
+            }
+            60% { 
+                transform: scale(0.7); 
+                opacity: 1;
+            }
+            100% { 
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .btn {
+            background-color: #1a1a1a;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        #message { margin-top: 15px; font-weight: bold; min-height: 20px; }
+    </style>
+</head>
+<body>
+
+    <p>Create four groups of four!</p>
+
+    <div class="grid" id="game-grid"></div>
+
+    <p> Mistakes Remaining: &infin;</p>
+
+    <div class="btn-container">
+        <button id="submit-btn" class="btn" onclick="checkSelection()">Submit</button>
+    </div>
+    <div id="message"></div>
+    
+
+    <script>
+        const categories = [
+            { desc: "About Andy", color: "#fae16f", words: ["Bonito", "Atento", "Inteligente", "Engraçado"] },
+            { desc: "Words Margarida uses A LOT", color: "#b9d188", words: ["Imagina", "Pronto", "Diga", "Fofo"] },
+            { desc: "Things we enjoy doing together!", color: "#b0c2ed", words: ["Sestas", "Cozinhar", "Parallel Play", "Caminhadas"] },
+            { desc: "First words of song titles in Portuguese that we love", color: "#cfabd7", words: ["Volta", "Força", "Perdido", "Cordeiro"] }
+        ];
+
+        let selectedCards = [];
+        let solvedCategories = [];
+        let lastSolvedCategory = null;
+        let allWords = [];
+
+        // Inicializar o jogo
+        function initGame() {
+            allWords = [];
+            categories.forEach((cat, index) => {
+                cat.words.forEach(word => {
+                    allWords.push({ word: word, catIndex: index });
+                });
+            });
+           
+            allWords.sort(() => Math.random() - 0.5);
+            renderGrid();
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById("game-grid");
+            grid.innerHTML = "";
+
+            // Mostrar categorias já resolvidas
+            solvedCategories.forEach(catIndex => {
+                const cat = categories[catIndex];
+                const div = document.createElement("div");
+                div.className = "solved";
+                div.style.backgroundColor = cat.color;
+
+                if (catIndex === lastSolvedCategory) {
+                    div.classList.add("pop-solved");
+                }
+                
+                if (catIndex == 3){
+                div.innerHTML = `
+                    <strong style="font-size: 1.15rem; display: block; margin-bottom: 4px;">${cat.desc}</strong>
+                    <span style="font-size: 1.10rem; font-weight: 300; opacity: 0.7;">${cat.words.join(", ")}</span>
+                `;
+
+                } else {
+                div.innerHTML = `
+                    <strong style="font-size: 1.25rem; display: block; margin-bottom: 4px;">${cat.desc}</strong>
+                    <span style="font-size: 1.10rem; font-weight: 300; opacity: 0.7;">${cat.words.join(", ")}</span>
+                `;
+                }
+                grid.appendChild(div);
+            });
+
+            // Mostrar palavras restantes
+            allWords.forEach(item => {
+                const div = document.createElement("div");
+                div.className = "card";
+                div.innerText = item.word;
+                if (selectedCards.includes(item)) {
+                    div.classList.add("selected");
+                }
+                div.onclick = () => toggleSelect(item, div);
+                grid.appendChild(div);
+            });
+        }
+
+        function toggleSelect(item, element) {
+            const index = selectedCards.indexOf(item);
+
+            if (index > -1) {
+                selectedCards.splice(index, 1);
+                element.classList.remove("selected");
+            } else if (selectedCards.length < 4) {
+                selectedCards.push(item);
+                element.classList.add("selected");
+            } else {
+                return;
+            }
+            element.classList.remove("pop");
+            void element.offsetWidth;
+            element.classList.add("pop");
+
+            //renderGrid();
+
+            updateButtonState();
+        }
+
+        function updateButtonState() {
+            
+            const btn = document.getElementById("submit-btn");
+            if (btn) {
+                btn.disabled = selectedCards.length !== 4;
+            }
+        }
+
+        function triggerVictoryConfetti() {
+            // Shoots a multi-stage celebratory confetti explosion
+            const duration = 2.5 * 1000;
+            const animationEnd = Date.now() + duration;
+            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+            function randomInRange(min, max) {
+                return Math.random() * (max - min) + min;
+            }
+
+            const interval = setInterval(function() {
+                const timeLeft = animationEnd - Date.now();
+
+                if (timeLeft <= 0) {
+                    return clearInterval(interval);
+                }
+
+                const particleCount = 50 * (timeLeft / duration);
+                
+                // Shoot from left and right corners
+                confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+                confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+            }, 250);
+        }
+
+        function checkSelection() {
+            const msg = document.getElementById("message");
+            const grid = document.getElementById("game-grid");
+
+            if (selectedCards.length !== 4) {
+                msg.innerText = "Seleciona exatamente 4 palavras!";
+                return;
+            }
+
+            const firstCat = selectedCards[0].catIndex;
+            const isCorrect = selectedCards.every(item => item.catIndex === firstCat);
+
+            if (isCorrect) {
+                msg.innerText = "Correct!";
+                solvedCategories.push(firstCat);
+            
+                lastSolvedCategory = firstCat;
+                //solvedCategories.push(firstCat);
+
+                allWords = allWords.filter(item => item.catIndex !== firstCat);
+            } else {
+                msg.innerText = "NO! Try again :)";
+                lastSolvedCategory = null;
+                grid.classList.remove("shake");
+                void grid.offsetWidth;
+                grid.classList.add("shake");
+
+                setTimeout(() => {
+                    grid.classList.remove("shake");
+                    selectedCards = [];
+                    renderGrid();
+                }, 400);
+            }
+
+            selectedCards = [];
+            renderGrid();
+
+            if (solvedCategories.length === 4) {
+                msg.innerText = "Congratulations!";
+                msg.style.fontSize = "90px";
+
+                triggerVictoryConfetti();
+                const btn = document.getElementById("submit-btn");
+                btn.disabled =true;
+            }
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
+
+
